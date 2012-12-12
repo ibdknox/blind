@@ -1,5 +1,3 @@
-(set! *warn-on-reflection* true)
-
 (ns blind.reader
   (:refer-clojure :exclude [read read-line read-string char])
   (:import (clojure.lang BigInt Numbers PersistentHashMap PersistentHashSet IMeta ISeq
@@ -420,23 +418,39 @@
   [rdr _]
   (let [[line column] (when (instance? blind.reader.IndexingReader rdr)
                         [(get-line-number rdr) (dec (get-column-number rdr))])
-        the-list (read-delimited-list \) rdr true)]
+        the-list (read-delimited-list \) rdr true)
+        [end-line end-column] (when (instance? blind.reader.IndexingReader rdr)
+                                [(get-line-number rdr) (dec (get-column-number rdr))])]
     (if (empty? the-list)
       '()
       (if-not line
         (clojure.lang.PersistentList/create the-list)
-        (with-meta (clojure.lang.PersistentList/create the-list) {:line line :column column})))))
+        (with-meta (clojure.lang.PersistentList/create the-list) {:line line :column column :end-line end-line :end-column end-column})))))
 
 (defn read-vector
   [rdr _]
-  (read-delimited-list \] rdr true))
+  (let [[line column] (when (instance? blind.reader.IndexingReader rdr)
+                        [(get-line-number rdr) (dec (get-column-number rdr))])
+        the-vector (read-delimited-list \] rdr true)
+        [end-line end-column] (when (instance? blind.reader.IndexingReader rdr)
+                                [(get-line-number rdr) (dec (get-column-number rdr))])]
+    (if-not line
+      the-vector
+      (with-meta the-vector {:line line :column column :end-line end-line :end-column end-column}))))
 
 (defn read-map
   [rdr _]
-  (let [l (to-array (read-delimited-list \} rdr true))]
-    (when (== 1 (bit-and (alength l) 1))
+  
+  (let [[line column] (when (instance? blind.reader.IndexingReader rdr)
+                        [(get-line-number rdr) (dec (get-column-number rdr))])
+        the-map (to-array (read-delimited-list \} rdr true))
+        [end-line end-column] (when (instance? blind.reader.IndexingReader rdr)
+                                [(get-line-number rdr) (dec (get-column-number rdr))])]
+    (when (== 1 (bit-and (alength the-map) 1))
       (reader-error rdr "Map literal must contain an even number of forms"))
-    (RT/map l)))
+    (if-not line
+      (RT/map the-map)
+      (with-meta (RT/map the-map) {:line line :column column :end-line end-line :end-column end-column}))))
 
 (defn read-number
   [reader initch]
@@ -485,21 +499,25 @@
 
 (defn read-symbol
   [rdr initch]
-  (when-let [token (read-token rdr initch)]
-    (case token
-
-      ;; special symbols
-      "nil" nil
-      "true" true
-      "false" false
-      "/" '/
-      "NaN" Double/NaN
-      "-Infinity" Double/NEGATIVE_INFINITY
-      ("Infinity" "+Infinity") Double/POSITIVE_INFINITY
-
-      (or (when-let [p (parse-symbol token)]
-            (symbol (p 0) (p 1)))
-          (reader-error rdr "Invalid token: " token)))))
+  (let [[line column] (when (instance? blind.reader.IndexingReader rdr)
+                        [(get-line-number rdr) (dec (get-column-number rdr))])]
+    (when-let [token (read-token rdr initch)]
+      (let [[end-line end-column] (when (instance? blind.reader.IndexingReader rdr)
+                                    [(get-line-number rdr) (dec (get-column-number rdr))])]
+        (case token
+          
+          ;; special symbols
+          "nil" nil
+          "true" true
+          "false" false
+          "/" '/
+          "NaN" Double/NaN
+          "-Infinity" Double/NEGATIVE_INFINITY
+          ("Infinity" "+Infinity") Double/POSITIVE_INFINITY
+          
+          (or (when-let [p (parse-symbol token)]
+                (with-meta (symbol (p 0) (p 1)) {:line line :column column :end-line end-line :end-column end-column}))
+              (reader-error rdr "Invalid token: " token)))))))
 
 (defn- resolve-ns [sym]
   (or ((ns-aliases *ns*) sym)
@@ -536,7 +554,14 @@
 (defn wrapping-reader
   [sym]
   (fn [rdr _]
-    (cons sym (cons (read rdr true nil true) nil))))
+    (let [[line column] (when (instance? blind.reader.IndexingReader rdr)
+                          [(get-line-number rdr) (dec (get-column-number rdr))])
+          the-list (cons sym (cons (read rdr true nil true) nil))
+          [end-line end-column] (when (instance? blind.reader.IndexingReader rdr)
+                                  [(get-line-number rdr) (dec (get-column-number rdr))])]
+      (if-not line
+        the-list
+        (with-meta the-list {:line line :column column :end-line end-line :end-column end-column})))))
 
 (defn throwing-reader
   [msg]

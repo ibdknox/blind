@@ -18,6 +18,9 @@
   (try (clojure.core/char x)
        (catch NullPointerException e)))
 
+(defn- with-position [x line column end-line end-column]
+  (with-meta x {:line (int line) :column column :end-line (int end-line) :end-column end-column}))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; reader protocols
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -425,7 +428,7 @@
       '()
       (if-not line
         (clojure.lang.PersistentList/create the-list)
-        (with-meta (clojure.lang.PersistentList/create the-list) {:line line :column column :end-line end-line :end-column end-column})))))
+        (with-position (clojure.lang.PersistentList/create the-list) line column end-line end-column)))))
 
 (defn read-vector
   [rdr _]
@@ -436,7 +439,7 @@
                                 [(get-line-number rdr) (dec (get-column-number rdr))])]
     (if-not line
       the-vector
-      (with-meta the-vector {:line line :column column :end-line end-line :end-column end-column}))))
+        (with-position the-vector line column end-line end-column))))
 
 (defn read-map
   [rdr _]
@@ -450,7 +453,7 @@
       (reader-error rdr "Map literal must contain an even number of forms"))
     (if-not line
       (RT/map the-map)
-      (with-meta (RT/map the-map) {:line line :column column :end-line end-line :end-column end-column}))))
+      (with-position (RT/map the-map) line column end-line end-column))))
 
 (defn read-number
   [reader initch]
@@ -516,7 +519,7 @@
           ("Infinity" "+Infinity") Double/POSITIVE_INFINITY
           
           (or (when-let [p (parse-symbol token)]
-                (with-meta (symbol (p 0) (p 1)) {:line line :column column :end-line end-line :end-column end-column}))
+                (with-position (symbol (p 0) (p 1)) line column end-line end-column))
               (reader-error rdr "Invalid token: " token)))))))
 
 (defn- resolve-ns [sym]
@@ -561,7 +564,7 @@
                                   [(get-line-number rdr) (dec (get-column-number rdr))])]
       (if-not line
         the-list
-        (with-meta the-list {:line line :column column :end-line end-line :end-column end-column})))))
+        (with-position the-list line column end-line end-column)))))
 
 (defn throwing-reader
   [msg]

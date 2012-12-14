@@ -1,4 +1,4 @@
-(defproject ibdknox/blind "0.3.4"
+(defproject ibdknox/blind "0.3.5"
   :description "A clojure reader written in clojure"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}

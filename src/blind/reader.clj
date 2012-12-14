@@ -19,7 +19,7 @@
        (catch NullPointerException e)))
 
 (defn- with-position [x line column end-line end-column]
-  (with-meta x {:line (int line) :column column :end-line (int end-line) :end-column end-column}))
+  (with-meta x {:line (int line) :column (int column) :end-line (int end-line) :end-column (int end-column)}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; reader protocols
